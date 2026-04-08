@@ -1,3 +1,4 @@
+from yt_dlp.cookies import load_cookies
 import os
 import asyncio
 import yt_dlp

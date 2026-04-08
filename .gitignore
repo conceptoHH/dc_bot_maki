@@ -16,6 +16,9 @@ wheels/
 .venv
 .env
 
+#idfkn
+cookies.txt
+
 # test files
 test.*
 
