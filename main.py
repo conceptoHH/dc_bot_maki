@@ -1,4 +1,3 @@
-from yt_dlp.cookies import load_cookies
 import os
 import asyncio
 import yt_dlp
@@ -7,7 +6,16 @@ from discord.ext import commands
 import dotenv
 import logging
 
+dotenv.load_dotenv()
+disc_token = os.environ.get('DISCORD_TOKEN')
+user = os.environ.get('GOOGLE_USER')
+pasw = os.environ.get('GOOGLE_PASS')
+if not disc_token:
+    raise RuntimeError("No se encontro el .env")
+
 ytdl_format_options = {
+    'username': f'{user}',
+    'password': f'{pasw}',
     'format': 'bestaudio[ext=webm]bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
     'restrictfilenames': True,
@@ -21,15 +29,6 @@ ytdl_format_options = {
     'source_address': '0.0.0.0',  # bind to ipv4 since ipv6 addresses cause issues sometimes
 }
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
-
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-
-
-dotenv.load_dotenv()
-disc_token = os.environ.get('DISCORD_TOKEN')
-
-if not disc_token:
-    raise RuntimeError("No se encontro el .env")
 
 
 class Music(commands.Cog):
@@ -61,21 +60,38 @@ class Music(commands.Cog):
 
         if ctx.voice_client.is_playing():
             self.queues[ctx.guild.id].append(url)
-            await ctx.channel.send(f"Added {url} to the *queue*")
+            loop = asyncio.get_event_loop()
+            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+
+            await ctx.channel.send(f"Added {data['title']} to the *queue*")
             return
         else:
             loop = asyncio.get_event_loop()
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
-            filename = data['url']
 
             ffmpeg_options = {
                 'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 200M -multiple_requests 1',
                 'options': '-vn'
             }
 
-            audio_src = await discord.FFmpegOpusAudio.from_probe(filename, **ffmpeg_options)
+            audio_src = await discord.FFmpegOpusAudio.from_probe(data['url'], **ffmpeg_options)
 
             ctx.voice_client.play(audio_src, after=lambda e: self.play_next_sync(ctx, e))
+    
+
+    @commands.command()
+    async def skip(self,ctx):
+        if len(self.queues[ctx.guild.id]) > 0 and ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+        else: 
+            await ctx.channel.send('There is no more songs in the queue right now (o.O)')
+
+    @commands.command()
+    async def list(self,ctx):
+        num = 1
+        for t in self.queues[ctx.guild.id]:
+            await ctx.channel.send(f'{num}.- {t}')
+            num += 1
 
     async def play_next(self, ctx):
         if len(self.queues[ctx.guild.id]) > 0:

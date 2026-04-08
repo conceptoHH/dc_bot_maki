@@ -14,8 +14,8 @@ wheels/
 
 # Virtual environments
 .venv
-.env
-
+*.env
+!example.env
 #idfkn
 cookies.txt
 
