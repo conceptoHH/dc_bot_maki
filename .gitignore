@@ -15,3 +15,9 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# test files
+test.*
+
+# logs
+*.log
