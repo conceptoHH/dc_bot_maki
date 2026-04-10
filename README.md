@@ -6,7 +6,7 @@
 ## REQUIREMENTS
 
 > [!IMPORTANT]
-> this is not a guide to create your first bot, so im asuming you have you own already,
+> this is not a guide to create your first bot, so im assuming you have you own already,
 > check this [guide](https://docs.discord.com/developers/quick-start/getting-started) if you want one
 
 * python >= 3.12
