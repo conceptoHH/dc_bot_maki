@@ -1,4 +1,6 @@
+from discord.app_commands import command
 import os
+import sys # Make sure to import this at the top of your file or here
 import asyncio
 import yt_dlp
 import discord
@@ -14,19 +16,19 @@ if not disc_token:
     raise RuntimeError("No se encontro el .env")
 
 ytdl_format_options = {
-    'username': f'{user}',
-    'password': f'{pasw}',
-    'format': 'bestaudio[ext=webm]bestaudio/best',
+    'format': 'bestaudio[ext=webm]/bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
     'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
     'ignoreerrors': False,
     'logtostderr': False,
-    'quiet': True,
-    'no_warnings': True,
+    'quiet': False,
+    'no_warnings': False,
     'default_search': 'auto',
-    'source_address': '0.0.0.0',  # bind to ipv4 since ipv6 addresses cause issues sometimes
+    'source_address': '0.0.0.0', # bind to ipv4 since ipv6 addresses cause issues sometimes
+    'cookiesfrombrowser': ('firefox', '9dyqdr9b.default-release'), #Se añadio para que funcione con cookies y google no flaggee al bot
+    'remote_components': ['ejs:github'], #para que el runtime pueda pasar los challenges
 }
 ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
@@ -68,17 +70,54 @@ class Music(commands.Cog):
         else:
             loop = asyncio.get_event_loop()
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+            filename = data['url']
+            print(f"Extracted URL starts with: {filename[:30]}...") # Let's see what we actually got
 
             ffmpeg_options = {
                 'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 200M -multiple_requests 1',
                 'options': '-vn'
             }
 
-            audio_src = await discord.FFmpegOpusAudio.from_probe(data['url'], **ffmpeg_options)
+            # Try the high-quality Opus stream first
+            try:
+                audio_src = await discord.FFmpegOpusAudio.from_probe(filename, **ffmpeg_options)
+                print("Playing via Native Opus!")
+            # If the probe fails (because it's an m3u8 or mp4), fall back to standard PCM
+            except Exception as e:
+                print(f"Opus probe failed, falling back to PCM: {e}")
+                audio_src = discord.FFmpegPCMAudio(filename)
 
             ctx.voice_client.play(audio_src, after=lambda e: self.play_next_sync(ctx, e))
     
+    @commands.command()
+    async def testsound(self, ctx):
+        import shutil
+        await self.ensure_voice(ctx)
+        
+        # 1. Dynamically find the TRUE absolute path to ffmpeg.exe
+        ffmpeg_absolute_path = shutil.which('ffmpeg')
+        
+        if not ffmpeg_absolute_path:
+            await ctx.send("❌ Python cannot resolve the absolute path to FFmpeg.")
+            return
+            
+        await ctx.send(f"✅ Bypassing Windows alias. Using path: `{ffmpeg_absolute_path}`")
 
+        try:
+            # 2. Force discord.py to use the physical executable, not the PATH alias
+            audio_src = discord.FFmpegPCMAudio('test.mp3', executable=ffmpeg_absolute_path)
+            ctx.voice_client.play(audio_src)
+            
+        except Exception as e:
+            await ctx.send(f"❌ Audio engine failed: {e}")
+
+    @commands.command()
+    async def stop(self, ctx):
+        if ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+        else:
+            await ctx.channel.send('There is no song playing right now you dummy (*-.-)')
+    
     @commands.command()
     async def skip(self,ctx):
         if len(self.queues[ctx.guild.id]) > 0 and ctx.voice_client.is_playing():
@@ -147,6 +186,8 @@ async def on_ready():
     assert bot.user is not None
 
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    print('------')
+    print(f'Is Opus Audio loaded?: {discord.opus.is_loaded()}')
     print('------')
 
 async def main():
