@@ -117,6 +117,17 @@ class Music(commands.Cog):
             ctx.voice_client.stop()
         else:
             await ctx.channel.send('There is no song playing right now you dummy (*-.-)')
+
+    @commands.command()
+    async def pause(self, ctx):
+        if ctx.voice_client.is_playing():
+            ctx.voice_client.pause()
+            await ctx.channel.send('Song paused (°.°) use -> !pause again to resume')
+        elif ctx.voice_client.is_paused():
+            ctx.voice_client.resume()
+            await ctx.channel.send('Song resumed (* w *) enjoy!')
+        else:
+            await ctx.channel.send('There is no song playing right now you dummy (*-.-)')
     
     @commands.command()
     async def skip(self,ctx):
