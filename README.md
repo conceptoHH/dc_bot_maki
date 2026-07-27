@@ -9,6 +9,7 @@
 > this is not a guide to create your first bot, so im assuming you have you own already,
 > check this [guide](https://docs.discord.com/developers/quick-start/getting-started) if you want one
 
+* a registered bot obviously
 * python >= 3.12
 * discord.py
 * yt-dlp
